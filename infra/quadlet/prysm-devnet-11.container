@@ -1,0 +1,41 @@
+[Unit]
+Description=Prysm Devnet 11 consensus client with Xray instrumentation
+Documentation=https://prysm.offchainlabs.com/
+Wants=network-online.target xray-devnet-11.service
+After=network-online.target xray-devnet-11.service
+
+[Container]
+Image=docker.io/kamilsa/xray-prysm@sha256:a558e1d105aad1d82390ba93ab887cc099a8eb92e3429d75bb457c433056c25e
+Pull=missing
+ContainerName=ethp2p-prysm-devnet-11
+Network=host
+User=1000
+Group=1000
+Volume=/home/kamil/devnet-11/prysm:/data
+Volume=/home/kamil/devnet-11/network:/network:ro
+Volume=/home/kamil/devnet-11/jwt.hex:/jwt.hex:ro
+Volume=/run/xray-devnet-11:/run/xray-devnet-11
+Environment=HOME=/tmp
+NoNewPrivileges=true
+DropCapability=all
+LogDriver=journald
+PidsLimit=8192
+Ulimit=nofile=1048576:1048576
+HealthCmd=curl --fail --silent --show-error http://127.0.0.1:13500/eth/v1/node/health
+HealthInterval=30s
+HealthTimeout=10s
+HealthRetries=5
+HealthStartPeriod=2m
+HealthOnFailure=kill
+Exec=--accept-terms-of-use --datadir=/data --chain-config-file=/network/config.yaml --genesis-state=/network/genesis.ssz --bootstrap-node=/network/bootstrap_nodes.yaml --execution-endpoint=http://127.0.0.1:18551 --jwt-secret=/jwt.hex --p2p-tcp-port=13001 --p2p-quic-port=13001 --p2p-udp-port=12001 --rpc-host=127.0.0.1 --rpc-port=14000 --http-host=127.0.0.1 --http-port=13500 --monitoring-port=18080 --p2p-instrument-socket=/run/xray-devnet-11/xray.sock --p2p-instrument-wait-for-attach
+PodmanArgs=--stop-timeout=120
+
+[Service]
+Restart=always
+RestartSec=10
+TimeoutStartSec=10min
+TimeoutStopSec=3min
+LimitNOFILE=1048576
+
+[Install]
+WantedBy=multi-user.target

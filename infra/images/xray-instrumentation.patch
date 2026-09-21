@@ -1,0 +1,228 @@
+diff --git a/beacon-chain/node/node.go b/beacon-chain/node/node.go
+index c4c16b127..a03c66b3e 100644
+--- a/beacon-chain/node/node.go
++++ b/beacon-chain/node/node.go
+@@ -675,31 +675,34 @@ func (b *BeaconNode) registerP2P(cliCtx *cli.Context) error {
+ 	}
+ 
+ 	svc, err := p2p.NewService(b.ctx, &p2p.Config{
+-		NoDiscovery:           cliCtx.Bool(cmd.NoDiscovery.Name),
+-		StaticPeers:           slice.SplitCommaSeparated(cliCtx.StringSlice(cmd.StaticPeers.Name)),
+-		Discv5BootStrapAddrs:  p2p.ParseBootStrapAddrs(bootstrapNodeAddrs),
+-		RelayNodeAddr:         cliCtx.String(cmd.RelayNode.Name),
+-		DataDir:               dataDir,
+-		DiscoveryDir:          filepath.Join(dataDir, "discovery"),
+-		LocalIP:               cliCtx.String(cmd.P2PIP.Name),
+-		HostAddress:           cliCtx.String(cmd.P2PHost.Name),
+-		HostDNS:               cliCtx.String(cmd.P2PHostDNS.Name),
+-		PrivateKey:            cliCtx.String(cmd.P2PPrivKey.Name),
+-		StaticPeerID:          cliCtx.Bool(cmd.P2PStaticID.Name),
+-		QUICPort:              cliCtx.Uint(cmd.P2PQUICPort.Name),
+-		TCPPort:               cliCtx.Uint(cmd.P2PTCPPort.Name),
+-		UDPPort:               cliCtx.Uint(cmd.P2PUDPPort.Name),
+-		MaxPeers:              cliCtx.Uint(cmd.P2PMaxPeers.Name),
+-		QueueSize:             cliCtx.Uint(cmd.PubsubQueueSize.Name),
+-		AllowListCIDR:         cliCtx.String(cmd.P2PAllowList.Name),
+-		DenyListCIDR:          slice.SplitCommaSeparated(cliCtx.StringSlice(cmd.P2PDenyList.Name)),
+-		IPColocationWhitelist: colocationWhitelist,
+-		EnableUPnP:            cliCtx.Bool(cmd.EnableUPnPFlag.Name),
+-		StateNotifier:         b,
+-		DB:                    b.db,
+-		StateGen:              b.stateGen,
+-		ClockWaiter:           b.ClockWaiter,
+-		PartialDataColumns:    b.cliCtx.Bool(flags.PartialDataColumns.Name),
++		NoDiscovery:             cliCtx.Bool(cmd.NoDiscovery.Name),
++		StaticPeers:             slice.SplitCommaSeparated(cliCtx.StringSlice(cmd.StaticPeers.Name)),
++		Discv5BootStrapAddrs:    p2p.ParseBootStrapAddrs(bootstrapNodeAddrs),
++		RelayNodeAddr:           cliCtx.String(cmd.RelayNode.Name),
++		DataDir:                 dataDir,
++		DiscoveryDir:            filepath.Join(dataDir, "discovery"),
++		LocalIP:                 cliCtx.String(cmd.P2PIP.Name),
++		HostAddress:             cliCtx.String(cmd.P2PHost.Name),
++		HostDNS:                 cliCtx.String(cmd.P2PHostDNS.Name),
++		PrivateKey:              cliCtx.String(cmd.P2PPrivKey.Name),
++		StaticPeerID:            cliCtx.Bool(cmd.P2PStaticID.Name),
++		QUICPort:                cliCtx.Uint(cmd.P2PQUICPort.Name),
++		TCPPort:                 cliCtx.Uint(cmd.P2PTCPPort.Name),
++		UDPPort:                 cliCtx.Uint(cmd.P2PUDPPort.Name),
++		MaxPeers:                cliCtx.Uint(cmd.P2PMaxPeers.Name),
++		QueueSize:               cliCtx.Uint(cmd.PubsubQueueSize.Name),
++		AllowListCIDR:           cliCtx.String(cmd.P2PAllowList.Name),
++		DenyListCIDR:            slice.SplitCommaSeparated(cliCtx.StringSlice(cmd.P2PDenyList.Name)),
++		IPColocationWhitelist:   colocationWhitelist,
++		EnableUPnP:              cliCtx.Bool(cmd.EnableUPnPFlag.Name),
++		StateNotifier:           b,
++		DB:                      b.db,
++		StateGen:                b.stateGen,
++		ClockWaiter:             b.ClockWaiter,
++		PartialDataColumns:      b.cliCtx.Bool(flags.PartialDataColumns.Name),
++		InstrumentFile:          cliCtx.String(cmd.P2PInstrumentFile.Name),
++		InstrumentSocket:        cliCtx.String(cmd.P2PInstrumentSocket.Name),
++		InstrumentWaitForAttach: cliCtx.Bool(cmd.P2PInstrumentWaitForAttach.Name),
+ 	})
+ 	if err != nil {
+ 		return err
+diff --git a/beacon-chain/p2p/config.go b/beacon-chain/p2p/config.go
+index 9448b04c5..2ba8cc435 100644
+--- a/beacon-chain/p2p/config.go
++++ b/beacon-chain/p2p/config.go
+@@ -26,33 +26,36 @@ const (
+ // Config for the p2p service. These parameters are set from application level flags
+ // to initialize the p2p service.
+ type Config struct {
+-	PartialDataColumns    bool
+-	NoDiscovery           bool
+-	EnableUPnP            bool
+-	StaticPeerID          bool
+-	DisableLivenessCheck  bool
+-	StaticPeers           []string
+-	Discv5BootStrapAddrs  []string
+-	RelayNodeAddr         string
+-	LocalIP               string
+-	HostAddress           string
+-	HostDNS               string
+-	PrivateKey            string
+-	DataDir               string
+-	DiscoveryDir          string
+-	QUICPort              uint
+-	TCPPort               uint
+-	UDPPort               uint
+-	PingInterval          time.Duration
+-	MaxPeers              uint
+-	QueueSize             uint
+-	AllowListCIDR         string
+-	DenyListCIDR          []string
+-	IPColocationWhitelist []*net.IPNet
+-	StateNotifier         statefeed.Notifier
+-	DB                    db.ReadOnlyDatabaseWithSeqNum
+-	StateGen              stategen.StateManager
+-	ClockWaiter           startup.ClockWaiter
++	PartialDataColumns      bool
++	NoDiscovery             bool
++	EnableUPnP              bool
++	StaticPeerID            bool
++	DisableLivenessCheck    bool
++	StaticPeers             []string
++	Discv5BootStrapAddrs    []string
++	RelayNodeAddr           string
++	LocalIP                 string
++	HostAddress             string
++	HostDNS                 string
++	PrivateKey              string
++	DataDir                 string
++	DiscoveryDir            string
++	QUICPort                uint
++	TCPPort                 uint
++	UDPPort                 uint
++	PingInterval            time.Duration
++	MaxPeers                uint
++	QueueSize               uint
++	AllowListCIDR           string
++	DenyListCIDR            []string
++	IPColocationWhitelist   []*net.IPNet
++	StateNotifier           statefeed.Notifier
++	DB                      db.ReadOnlyDatabaseWithSeqNum
++	StateGen                stategen.StateManager
++	ClockWaiter             startup.ClockWaiter
++	InstrumentFile          string
++	InstrumentSocket        string
++	InstrumentWaitForAttach bool
+ }
+ 
+ // connManagerLowHigh picks the low and high water marks for the connection manager based
+diff --git a/beacon-chain/p2p/service.go b/beacon-chain/p2p/service.go
+index 83a1c6734..0756d5ca3 100644
+--- a/beacon-chain/p2p/service.go
++++ b/beacon-chain/p2p/service.go
+@@ -27,6 +27,7 @@ import (
+ 	"github.com/OffchainLabs/prysm/v7/time/slots"
+ 	"github.com/ethereum/go-ethereum/p2p/enode"
+ 	"github.com/ethereum/go-ethereum/p2p/enr"
++	"github.com/ethp2p/xray/probe"
+ 	"github.com/libp2p/go-libp2p"
+ 	pubsub "github.com/libp2p/go-libp2p-pubsub"
+ 	"github.com/libp2p/go-libp2p/core/host"
+@@ -167,6 +168,29 @@ func NewService(ctx context.Context, cfg *Config) (*Service, error) {
+ 		return nil, errors.Wrapf(err, "failed to create p2p host")
+ 	}
+ 
++	if cfg.InstrumentFile != "" || cfg.InstrumentSocket != "" {
++		var instOpts []probe.Option
++		if cfg.InstrumentFile != "" {
++			instOpts = append(instOpts, probe.WithSinkFile(cfg.InstrumentFile))
++		}
++		if cfg.InstrumentSocket != "" {
++			instOpts = append(instOpts, probe.WithIngestAddr(cfg.InstrumentSocket), probe.WithClientName("prysm"))
++			if cfg.InstrumentWaitForAttach {
++				instOpts = append(instOpts, probe.WithWaitForAttach())
++			}
++		}
++		instrumentedHost, err := probe.Wrap(h, instOpts...)
++		if err != nil {
++			return nil, errors.Wrapf(err, "failed to create instrumented host")
++		}
++		h = instrumentedHost
++		log.WithFields(logrus.Fields{
++			"file":            cfg.InstrumentFile,
++			"socket":          cfg.InstrumentSocket,
++			"wait_for_attach": cfg.InstrumentWaitForAttach,
++		}).Info("P2P instrumentation enabled")
++	}
++
+ 	s.host = h
+ 
+ 	// Gossipsub registration is done before we add in any new peers
+diff --git a/cmd/beacon-chain/main.go b/cmd/beacon-chain/main.go
+index 4cd24dbfc..af57a4994 100644
+--- a/cmd/beacon-chain/main.go
++++ b/cmd/beacon-chain/main.go
+@@ -118,6 +118,9 @@ var appFlags = []cli.Flag{
+ 	cmd.TracingProcessNameFlag,
+ 	cmd.TracingEndpointFlag,
+ 	cmd.TraceSampleFractionFlag,
++	cmd.P2PInstrumentFile,
++	cmd.P2PInstrumentSocket,
++	cmd.P2PInstrumentWaitForAttach,
+ 	cmd.MonitoringHostFlag,
+ 	flags.MonitoringPortFlag,
+ 	cmd.DisableMonitoringFlag,
+diff --git a/cmd/beacon-chain/usage.go b/cmd/beacon-chain/usage.go
+index 05bd4879d..ca7ebe13d 100644
+--- a/cmd/beacon-chain/usage.go
++++ b/cmd/beacon-chain/usage.go
+@@ -87,6 +87,9 @@ var appHelpFlagGroups = []flagGroup{
+ 			cmd.P2PAllowList,
+ 			cmd.P2PDenyList,
+ 			cmd.P2PColocationWhitelist,
++			cmd.P2PInstrumentFile,
++			cmd.P2PInstrumentSocket,
++			cmd.P2PInstrumentWaitForAttach,
+ 			cmd.P2PHost,
+ 			cmd.P2PHostDNS,
+ 			cmd.P2PIP,
+diff --git a/cmd/flags.go b/cmd/flags.go
+index 2ec3dfb7d..2addc7eef 100644
+--- a/cmd/flags.go
++++ b/cmd/flags.go
+@@ -69,6 +69,21 @@ var (
+ 		Usage: "Head-sampling ratio applied to every trace started by the process. 1.0 keeps all traces.",
+ 		Value: 0.20,
+ 	}
++	// P2PInstrumentFile enables P2P instrumentation to a trace file.
++	P2PInstrumentFile = &cli.StringFlag{
++		Name:  "p2p-instrument-file",
++		Usage: "Path to write P2P trace file (protobuf format). Empty disables file output.",
++	}
++	// P2PInstrumentSocket enables the wiretap Unix domain socket.
++	P2PInstrumentSocket = &cli.StringFlag{
++		Name:  "p2p-instrument-socket",
++		Usage: "Path to the wiretap Unix domain socket. Empty disables socket output.",
++	}
++	// P2PInstrumentWaitForAttach blocks node startup until an introspector attaches.
++	P2PInstrumentWaitForAttach = &cli.BoolFlag{
++		Name:  "p2p-instrument-wait-for-attach",
++		Usage: "Block startup until an introspector attaches to the P2P instrumentation socket.",
++	}
+ 	// MonitoringHostFlag defines the host used to serve prometheus metrics.
+ 	MonitoringHostFlag = &cli.StringFlag{
+ 		Name:  "monitoring-host",

@@ -1,0 +1,30 @@
+[Unit]
+Description=Ethereum Xray backend and dashboard for Devnet 11
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=ghcr.io/ethp2p/xray:0.1.0
+Pull=missing
+ContainerName=ethp2p-xray-devnet-11
+User=1000
+Group=1000
+Network=host
+Volume=/home/kamil/.xray-devnet-11/data:/data
+Volume=/run/xray-devnet-11:/run/xray
+NoNewPrivileges=true
+DropCapability=all
+ReadOnly=true
+LogDriver=journald
+PidsLimit=1024
+Exec=--ingest=/run/xray/xray.sock --listen=127.0.0.1:9111 --data-dir=/data --static-dir=/srv/dashboard --genesis-unix=1788948000 --seconds-per-slot=12 --retention-days=30
+PodmanArgs=--stop-timeout=60
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=5min
+TimeoutStopSec=90
+
+[Install]
+WantedBy=multi-user.target
