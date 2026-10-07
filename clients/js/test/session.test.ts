@@ -239,3 +239,26 @@ test("rejects collectors that cannot represent capture gaps", async () => {
     await sink.close();
   }
 });
+
+test("reconnects after an idle collector disconnect without new trace events", async () => {
+  const sink = await collector();
+  const session = new IngestSession(
+    {
+      address: sink.address,
+      peerId: Uint8Array.of(1),
+      clientName: "idle-test",
+      retryMs: 10,
+    },
+    () => [],
+  );
+  session.start();
+  try {
+    await session.waitForAttach(AbortSignal.timeout(5000));
+    sink.disconnect();
+    await until(() => sink.attaches === 2);
+    await session.waitForAttach(AbortSignal.timeout(5000));
+  } finally {
+    await session.stop();
+    await sink.close();
+  }
+});

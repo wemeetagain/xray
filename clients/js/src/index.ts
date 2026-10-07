@@ -41,7 +41,11 @@ type Node = Pick<
 > & { unuse(protocol: string, middleware?: StreamMiddleware): void };
 type PeerState = { upsert: PeerUpsert; connections: number };
 type ConnectionState = { upsert: ConnectionUpsert; peer: string };
-type StreamState = { upsert: StreamUpsert; detach: () => void };
+type StreamState = {
+  upsert: StreamUpsert;
+  detach: () => void;
+  close: (reason: number) => void;
+};
 
 /** Requires libp2p's global ('*') stream middleware support. */
 export class XrayProbe {
@@ -49,7 +53,12 @@ export class XrayProbe {
   private readonly strings = new Map<string, number>();
   private readonly peers = new Map<string, PeerState>();
   private readonly connections = new Map<string, ConnectionState>();
-  private readonly streams = new Map<bigint, StreamState>();
+  // Closed streams may still deliver buffered reads. Weak ownership lets an
+  // abandoned reader be collected instead of retaining it until probe.stop().
+  private readonly streams = new Map<bigint, WeakRef<StreamState>>();
+  private readonly finalizedStreams = new FinalizationRegistry<bigint>(
+    (alias) => this.closeStream(alias, 3),
+  );
   private readonly seenStreams = new WeakSet<Stream>();
   private nextPeer = 0n;
   private nextConnection = 0n;
@@ -92,7 +101,13 @@ export class XrayProbe {
     this.node.unuse("*", this.middleware);
     this.node.removeEventListener("connection:open", this.onConnectionOpen);
     this.node.removeEventListener("connection:close", this.onConnectionClose);
-    for (const state of this.streams.values()) state.detach();
+    for (const ref of this.streams.values()) {
+      const state = ref.deref();
+      if (state) {
+        state.detach();
+        this.finalizedStreams.unregister(state);
+      }
+    }
     await this.session.stop(timeoutMs);
     this.streams.clear();
     this.connections.clear();
@@ -121,9 +136,10 @@ export class XrayProbe {
     this.observe(() => {
       const state = this.connections.get(event.detail.id);
       if (!state) return;
-      for (const [alias, stream] of this.streams) {
-        if (stream.upsert.connAlias === state.upsert.connAlias)
-          this.closeStream(alias, 3);
+      for (const ref of this.streams.values()) {
+        const stream = ref.deref();
+        if (stream?.upsert.connAlias === state.upsert.connAlias)
+          stream.close(3);
       }
       this.session.emit({
         case: "connectionClosed",
@@ -223,31 +239,48 @@ export class XrayProbe {
       originalUnshift.call(stream, data);
       pushedBack += data.byteLength;
     };
+    let closeReason: number | undefined;
     const close = (): void =>
-      this.observe(() =>
-        this.closeStream(
-          upsert.streamAlias,
-          connection.status === "closed" || connection.status === "aborted"
-            ? 3
-            : stream.status === "reset" || stream.status === "aborted"
-              ? 2
-              : 1,
-        ),
+      state.close(
+        connection.status === "closed" || connection.status === "aborted"
+          ? 3
+          : stream.status === "reset" || stream.status === "aborted"
+            ? 2
+            : 1,
       );
-    stream.send = send;
-    stream.dispatchEvent = dispatch;
-    stream.unshift = unshift;
-    stream.addEventListener("close", close, { once: true });
-    this.streams.set(upsert.streamAlias, {
+    const end = (): void => {
+      if (closeReason !== undefined) state.close(closeReason);
+    };
+    const state: StreamState = {
       upsert,
+      close: (reason) => {
+        const finalReason = (closeReason ??= reason);
+        if (stream.readBufferLength === 0) {
+          this.observe(() => this.closeStream(upsert.streamAlias, finalReason));
+        }
+      },
       detach: () => {
         if (stream.send === send) stream.send = originalSend;
         if (stream.dispatchEvent === dispatch)
           stream.dispatchEvent = originalDispatch;
         if (stream.unshift === unshift) stream.unshift = originalUnshift;
         stream.removeEventListener("close", close);
+        stream.removeEventListener("end", end);
       },
-    });
+    };
+    stream.send = send;
+    stream.dispatchEvent = dispatch;
+    stream.unshift = unshift;
+    stream.addEventListener("close", close, { once: true });
+    stream.addEventListener("end", end, { once: true });
+    this.streams.set(upsert.streamAlias, new WeakRef(state));
+    this.finalizedStreams.register(state, upsert.streamAlias, state);
+    if (
+      stream.status === "closed" ||
+      stream.status === "reset" ||
+      stream.status === "aborted"
+    )
+      close();
   }
 
   private chunk(streamAlias: bigint, flow: Direction, data: Uint8Array): void {
@@ -264,9 +297,13 @@ export class XrayProbe {
   }
 
   private closeStream(alias: bigint, reason: number): void {
-    const state = this.streams.get(alias);
-    if (!state) return;
-    state.detach();
+    const ref = this.streams.get(alias);
+    if (!ref) return;
+    const state = ref.deref();
+    if (state) {
+      state.detach();
+      this.finalizedStreams.unregister(state);
+    }
     this.streams.delete(alias);
     this.session.emit({
       case: "streamClosed",
@@ -297,9 +334,11 @@ export class XrayProbe {
         this.connections.values(),
         (conn): Payload => ({ case: "connectionUpsert", value: conn.upsert }),
       ),
-      ...Array.from(this.streams.values(), (stream): Payload => {
+      ...Array.from(this.streams.values()).flatMap((ref): Payload[] => {
+        const stream = ref.deref();
+        if (!stream) return [];
         stream.upsert.captureStartedMidstream = true;
-        return { case: "streamUpsert", value: stream.upsert };
+        return [{ case: "streamUpsert", value: stream.upsert }];
       }),
     ];
   }

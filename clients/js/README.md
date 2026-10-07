@@ -30,8 +30,10 @@ Capture runs in the same thread as libp2p, including Lodestar's network worker.
 The probe observes inbound message dispatch without adding a consuming listener,
 and wraps `send` without changing its return value or errors. Read-ahead returned
 through `unshift` is counted once. `close()` only closes the write half; a stream
-closes in Xray when libp2p emits its actual close event. Connections, streams, and
-binary peer IDs receive independent aliases. Multiaddr data supplies transport
+closes in Xray after libp2p closes it and any buffered reads drain. Buffered bytes
+remain observable even after a remote reset or connection close. The probe does
+not keep abandoned streams alive. Connections, streams, and binary peer IDs
+receive independent aliases. Multiaddr data supplies transport
 and remote address metadata; unavailable local addresses remain unset.
 
 The captured bytes exclude transport encryption, multiplexing, and protocol

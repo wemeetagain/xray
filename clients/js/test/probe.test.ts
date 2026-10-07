@@ -131,3 +131,90 @@ test("captures buffered reads, backpressure, read-ahead, half-close and reset wi
     await sink.close();
   }
 });
+
+test("captures buffered reads after stream and connection closure", async () => {
+  const sink = await collector();
+  const node = stubInterface<Libp2p>();
+  node.peerId = peerIdFromPrivateKey(await generateKeyPair("Ed25519"));
+  node.getConnections.returns([]);
+  let observe: StreamMiddleware | undefined;
+  node.use.callsFake(
+    (_protocol: string, middleware: StreamMiddleware | StreamMiddleware[]) => {
+      observe = Array.isArray(middleware) ? middleware[0] : middleware;
+    },
+  );
+  let onConnectionClose: ((event: CustomEvent<Connection>) => void) | undefined;
+  node.addEventListener.callsFake((type: string, listener: unknown) => {
+    if (type === "connection:close" && typeof listener === "function") {
+      onConnectionClose = (event) => listener(event);
+    }
+  });
+  const probe = new XrayProbe(node, {
+    address: sink.address,
+    clientName: "buffered-close-test",
+  });
+  try {
+    await probe.waitForAttach(AbortSignal.timeout(5000));
+    for (const mode of ["close", "reset", "connection"] as const) {
+      const [local, remote] = await streamPair({ protocol: "/test/buffered" });
+      const connection = stubInterface<Connection>();
+      connection.id = mode;
+      connection.remotePeer = node.peerId;
+      connection.remoteAddr = multiaddr("/ip4/127.0.0.1/tcp/1234");
+      connection.direction = "outbound";
+      connection.status = "open";
+      connection.timeline = { open: Date.now() };
+      assert.ok(observe);
+      observe(local, connection, () => {});
+      remote.send(Uint8Array.of(1, 2, 3));
+      await until(() => local.readBufferLength === 3);
+      if (mode === "reset") {
+        remote.abort(new Error("remote reset with buffered data"));
+        await until(() => local.status === "reset");
+      } else {
+        await local.close();
+        await remote.close();
+        await until(() => local.status === "closed");
+      }
+      if (mode === "connection") {
+        connection.status = "closed";
+        assert.ok(onConnectionClose);
+        onConnectionClose(
+          new CustomEvent("connection:close", { detail: connection }),
+        );
+      }
+      const received: number[] = [];
+      local.addEventListener("message", (event) =>
+        received.push(...event.data.subarray()),
+      );
+      await until(() => received.length === 3);
+      assert.deepEqual(received, [1, 2, 3], mode);
+    }
+    await probe.stop();
+    await until(
+      () =>
+        sink.events.filter((e) => e.payload.case === "streamClosed").length ===
+        3,
+    );
+    for (let alias = 0n; alias < 3n; alias++) {
+      const chunks = sink.events.filter(
+        (e) =>
+          e.payload.case === "streamChunk" &&
+          e.payload.value.streamAlias === alias,
+      );
+      assert.equal(chunks.length, 1, `stream ${alias} lost buffered bytes`);
+      const closeIndex = sink.events.findIndex(
+        (e) =>
+          e.payload.case === "streamClosed" &&
+          e.payload.value.streamAlias === alias,
+      );
+      assert.ok(
+        sink.events.indexOf(chunks[0]!) < closeIndex,
+        `stream ${alias} closed before its final chunk`,
+      );
+    }
+  } finally {
+    await probe.stop();
+    await sink.close();
+  }
+});

@@ -145,3 +145,33 @@ func TestStripSubnetID(t *testing.T) {
 		}
 	}
 }
+
+func TestPayloadCacheSeparatesTopicsAndForks(t *testing.T) {
+	data := make([]byte, 240)
+	putSlotAt(data, 0, 7)
+	putSlotAt(data, 16, 42)
+	compressed := snappy.Encode(nil, data)
+	for _, tc := range []struct {
+		topic string
+		gloas bool
+		slot  uint64
+	}{
+		{"sync_committee_1", false, 7},
+		{"data_column_sidecar_1", false, 0},
+		{"data_column_sidecar_1", true, 42},
+		{"beacon_attestation_1", false, 42},
+	} {
+		slot, ok, _ := DecodePayloadForFork(tc.topic, compressed, tc.gloas)
+		if !ok || slot != tc.slot {
+			t.Fatalf("topic=%s gloas=%v: slot=(%d,%v), want %d", tc.topic, tc.gloas, slot, ok, tc.slot)
+		}
+	}
+}
+
+func TestDecodePayloadRejectsOversizedSnappyLength(t *testing.T) {
+	compressed := binary.AppendUvarint(nil, 10*1024*1024+1)
+	slot, ok, meta := DecodePayloadForFork("beacon_block", compressed, true)
+	if ok || slot != 0 || meta != (SSZMeta{}) {
+		t.Fatalf("oversized payload decoded: slot=(%d,%v), meta=%+v", slot, ok, meta)
+	}
+}
