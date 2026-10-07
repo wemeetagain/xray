@@ -37,12 +37,14 @@ func TestDecodeSlot_AggregateAndProof(t *testing.T) {
 
 func TestDecodeSlot_Attestation(t *testing.T) {
 	data := make([]byte, 240)
+	binary.LittleEndian.PutUint32(data, 228)
 	putSlotAt(data, 4, 99)
 	compressAndDecode(t, "beacon_attestation_5", data, 99)
 }
 
 func TestDecodeSlot_AttestationSubnet0(t *testing.T) {
 	data := make([]byte, 240)
+	binary.LittleEndian.PutUint32(data, 228)
 	putSlotAt(data, 4, 101)
 	compressAndDecode(t, "beacon_attestation_0", data, 101)
 }
