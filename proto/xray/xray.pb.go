@@ -409,12 +409,13 @@ func (x *ClientHello) GetStartedAtNs() int64 {
 }
 
 type ServerHello struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	ProtocolVersion uint32                 `protobuf:"varint,1,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"`
-	SourceId        string                 `protobuf:"bytes,2,opt,name=source_id,json=sourceId,proto3" json:"source_id,omitempty"`                // backend-assigned, stable across reconnects
-	LastAckedSeq    uint64                 `protobuf:"varint,3,opt,name=last_acked_seq,json=lastAckedSeq,proto3" json:"last_acked_seq,omitempty"` // highest seq the server has applied for this source; 0 = fresh attach
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	ProtocolVersion     uint32                 `protobuf:"varint,1,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"`
+	SourceId            string                 `protobuf:"bytes,2,opt,name=source_id,json=sourceId,proto3" json:"source_id,omitempty"`                                     // backend-assigned, stable across reconnects
+	LastAckedSeq        uint64                 `protobuf:"varint,3,opt,name=last_acked_seq,json=lastAckedSeq,proto3" json:"last_acked_seq,omitempty"`                      // highest seq the server has applied for this source; 0 = fresh attach
+	SupportsCaptureGaps bool                   `protobuf:"varint,4,opt,name=supports_capture_gaps,json=supportsCaptureGaps,proto3" json:"supports_capture_gaps,omitempty"` // understands snapshot cursors and incomplete stream markers
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *ServerHello) Reset() {
@@ -466,6 +467,13 @@ func (x *ServerHello) GetLastAckedSeq() uint64 {
 		return x.LastAckedSeq
 	}
 	return 0
+}
+
+func (x *ServerHello) GetSupportsCaptureGaps() bool {
+	if x != nil {
+		return x.SupportsCaptureGaps
+	}
+	return false
 }
 
 type SnapshotStart struct {
@@ -1045,11 +1053,12 @@ const file_proto_xray_xray_proto_rawDesc = "" +
 	"\vclient_name\x18\x03 \x01(\tR\n" +
 	"clientName\x12\x17\n" +
 	"\aboot_id\x18\x04 \x01(\fR\x06bootId\x12\"\n" +
-	"\rstarted_at_ns\x18\x05 \x01(\x03R\vstartedAtNs\"{\n" +
+	"\rstarted_at_ns\x18\x05 \x01(\x03R\vstartedAtNs\"\xaf\x01\n" +
 	"\vServerHello\x12)\n" +
 	"\x10protocol_version\x18\x01 \x01(\rR\x0fprotocolVersion\x12\x1b\n" +
 	"\tsource_id\x18\x02 \x01(\tR\bsourceId\x12$\n" +
-	"\x0elast_acked_seq\x18\x03 \x01(\x04R\flastAckedSeq\"\x0f\n" +
+	"\x0elast_acked_seq\x18\x03 \x01(\x04R\flastAckedSeq\x122\n" +
+	"\x15supports_capture_gaps\x18\x04 \x01(\bR\x13supportsCaptureGaps\"\x0f\n" +
 	"\rSnapshotStart\"9\n" +
 	"\vSnapshotEnd\x12*\n" +
 	"\x11last_included_seq\x18\x01 \x01(\x04R\x0flastIncludedSeq\"1\n" +

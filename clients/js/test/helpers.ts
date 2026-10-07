@@ -19,7 +19,7 @@ export async function until(predicate: () => boolean): Promise<void> {
   }
 }
 
-export async function collector() {
+export async function collector(supportsCaptureGaps = true) {
   let cursor = 0n;
   let attaches = 0;
   const events: Envelope[] = [];
@@ -44,6 +44,7 @@ export async function collector() {
                 create(ServerHelloSchema, {
                   protocolVersion: 3,
                   sourceId: "test",
+                  supportsCaptureGaps,
                   lastAckedSeq: cursor,
                 }),
               ),

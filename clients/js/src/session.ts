@@ -156,11 +156,13 @@ export class IngestSession {
       } catch (cause) {
         if (!this.stopping) {
           this.report(
-            new ProbeError(
-              "XRAY_COLLECTOR_UNAVAILABLE",
-              "Xray collector connection failed",
-              { cause },
-            ),
+            cause instanceof ProbeError
+              ? cause
+              : new ProbeError(
+                  "XRAY_COLLECTOR_UNAVAILABLE",
+                  "Xray collector connection failed",
+                  { cause },
+                ),
           );
         }
       } finally {

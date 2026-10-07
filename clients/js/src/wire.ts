@@ -106,6 +106,12 @@ export async function readServerHello(socket: Socket): Promise<ServerHello> {
         `Unsupported ingest version ${hello.protocolVersion}`,
       );
     }
+    if (!hello.supportsCaptureGaps) {
+      throw new ProbeError(
+        "XRAY_UNSUPPORTED_COLLECTOR",
+        "Collector does not support capture gap snapshots; update the collector",
+      );
+    }
     return hello;
   }
   throw new ProbeError(

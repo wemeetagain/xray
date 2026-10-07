@@ -216,3 +216,26 @@ test("resnapshots when a running producer outruns the bounded writer", async () 
     await sink.close();
   }
 });
+
+test("rejects collectors that cannot represent capture gaps", async () => {
+  const sink = await collector(false);
+  const errors: string[] = [];
+  const session = new IngestSession(
+    {
+      address: sink.address,
+      peerId: Uint8Array.of(1),
+      clientName: "test",
+      onError: (error) => errors.push(error.code),
+    },
+    () => [],
+  );
+  session.start();
+  try {
+    await until(() => errors.includes("XRAY_UNSUPPORTED_COLLECTOR"));
+    await assert.rejects(session.waitForAttach(AbortSignal.timeout(20)));
+    assert.equal(sink.events.length, 0);
+  } finally {
+    await session.stop(20);
+    await sink.close();
+  }
+});

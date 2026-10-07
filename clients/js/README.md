@@ -52,7 +52,9 @@ When retention is exhausted, the probe sends a metadata snapshot through
 `capture_started_midstream`; the collector reports their subsequent traffic as
 `capture_incomplete` instead of attempting to decode an arbitrary framing suffix.
 New streams decode normally. A collector built from this revision is required
-for that gap behavior. Older v3 Go probes remain supported by the collector.
+for that gap behavior. The SDK checks `ServerHello.supports_capture_gaps` and
+reports `XRAY_UNSUPPORTED_COLLECTOR` when the collector needs an upgrade. Older
+v3 Go probes remain supported by the collector.
 
 `onError` reports collector failures and retention gaps. Capture is opt-in and
 continues retrying when the collector is unavailable. `stop()` allows one second
