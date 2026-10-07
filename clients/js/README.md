@@ -2,8 +2,10 @@
 
 `@xray/probe` captures negotiated libp2p application streams and sends Xray v3
 envelopes to a local collector. It requires Node.js 22 or later and the accompanying
-js-libp2p middleware patch: global `use("*", middleware)`, isolated middleware
-arrays, append registration, and selective `unuse(protocol, middleware)`.
+js-libp2p middleware extension: global `use(middleware)` and `unuse(middleware)`
+overloads, with isolated middleware arrays for each stream. Existing
+`use(protocol, middleware)` calls still replace that protocol's middleware;
+protocol strings, including `"*"`, are matched literally.
 
 ```ts
 import { createLibp2p } from "libp2p";

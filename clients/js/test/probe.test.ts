@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { generateKeyPair } from "@libp2p/crypto/keys";
-import type { Connection, Libp2p, StreamMiddleware } from "@libp2p/interface";
+import type { Connection, StreamMiddleware } from "@libp2p/interface";
 import { peerIdFromPrivateKey } from "@libp2p/peer-id";
 import { streamPair } from "@libp2p/utils";
 import { multiaddr } from "@multiformats/multiaddr";
@@ -12,15 +12,13 @@ import { collector, until } from "./helpers.js";
 
 test("captures buffered reads, backpressure, read-ahead, half-close and reset without altering streams", async () => {
   const sink = await collector();
-  const node = stubInterface<Libp2p>();
+  const node = stubInterface<ConstructorParameters<typeof XrayProbe>[0]>();
   node.peerId = peerIdFromPrivateKey(await generateKeyPair("Ed25519"));
   node.getConnections.returns([]);
   let observe: StreamMiddleware | undefined;
-  node.use.callsFake(
-    (_protocol: string, middleware: StreamMiddleware | StreamMiddleware[]) => {
-      observe = Array.isArray(middleware) ? middleware[0] : middleware;
-    },
-  );
+  node.use.callsFake((middleware: StreamMiddleware) => {
+    observe = middleware;
+  });
   const probe = new XrayProbe(node, {
     address: sink.address,
     clientName: "adapter-test",
@@ -126,23 +124,20 @@ test("captures buffered reads, backpressure, read-ahead, half-close and reset wi
     local.abort(new Error("test cleanup"));
     remote.abort(new Error("test cleanup"));
     await probe.stop();
-    assert.equal(node.unuse.firstCall.args[0], "*");
-    assert.equal(node.unuse.firstCall.args[1], observe);
+    assert.deepEqual(node.unuse.firstCall.args, [observe]);
     await sink.close();
   }
 });
 
 test("captures buffered reads after stream and connection closure", async () => {
   const sink = await collector();
-  const node = stubInterface<Libp2p>();
+  const node = stubInterface<ConstructorParameters<typeof XrayProbe>[0]>();
   node.peerId = peerIdFromPrivateKey(await generateKeyPair("Ed25519"));
   node.getConnections.returns([]);
   let observe: StreamMiddleware | undefined;
-  node.use.callsFake(
-    (_protocol: string, middleware: StreamMiddleware | StreamMiddleware[]) => {
-      observe = Array.isArray(middleware) ? middleware[0] : middleware;
-    },
-  );
+  node.use.callsFake((middleware: StreamMiddleware) => {
+    observe = middleware;
+  });
   let onConnectionClose: ((event: CustomEvent<Connection>) => void) | undefined;
   node.addEventListener.callsFake((type: string, listener: unknown) => {
     if (type === "connection:close" && typeof listener === "function") {

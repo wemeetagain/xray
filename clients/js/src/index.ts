@@ -33,12 +33,11 @@ export interface XrayOptions {
 
 type Node = Pick<
   Libp2p,
-  | "peerId"
-  | "use"
-  | "getConnections"
-  | "addEventListener"
-  | "removeEventListener"
-> & { unuse(protocol: string, middleware?: StreamMiddleware): void };
+  "peerId" | "getConnections" | "addEventListener" | "removeEventListener"
+> & {
+  use(middleware: StreamMiddleware): void;
+  unuse(middleware: StreamMiddleware): void;
+};
 type PeerState = { upsert: PeerUpsert; connections: number };
 type ConnectionState = { upsert: ConnectionUpsert; peer: string };
 type StreamState = {
@@ -47,7 +46,7 @@ type StreamState = {
   close: (reason: number) => void;
 };
 
-/** Requires libp2p's global ('*') stream middleware support. */
+/** Requires libp2p's global use(middleware) and unuse(middleware) overloads. */
 export class XrayProbe {
   private readonly session: IngestSession;
   private readonly strings = new Map<string, number>();
@@ -76,7 +75,7 @@ export class XrayProbe {
       },
       () => this.snapshot(),
     );
-    node.use("*", this.middleware);
+    node.use(this.middleware);
     node.addEventListener("connection:open", this.onConnectionOpen);
     node.addEventListener("connection:close", this.onConnectionClose);
     for (const connection of node.getConnections()) {
@@ -98,7 +97,7 @@ export class XrayProbe {
   async stop(timeoutMs = 1000): Promise<void> {
     if (this.stopped) return;
     this.stopped = true;
-    this.node.unuse("*", this.middleware);
+    this.node.unuse(this.middleware);
     this.node.removeEventListener("connection:open", this.onConnectionOpen);
     this.node.removeEventListener("connection:close", this.onConnectionClose);
     for (const ref of this.streams.values()) {
